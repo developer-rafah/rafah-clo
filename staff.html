@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>لوحة الموظف | جمعية رفاه</title>
+
+<style>
+body{
+  font-family:Tajawal, sans-serif;
+  background:#0e0b14;
+  color:#fff;
+  padding:20px;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+th,td{
+  padding:12px;
+  border-bottom:1px solid rgba(255,255,255,.2);
+  text-align:center;
+}
+button{
+  padding:6px 14px;
+  border-radius:20px;
+  border:none;
+  cursor:pointer;
+  background:#b88fcf;
+  color:#000;
+}
+select{
+  padding:6px;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>الطلبات الجديدة</h2>
+
+<table id="reqTable">
+  <thead>
+    <tr>
+      <th>رقم الطلب</th>
+      <th>الاسم</th>
+      <th>الجوال</th>
+      <th>الحي</th>
+      <th>إسناد</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+function loadRequests(){
+  google.script.run.withSuccessHandler(render).getNewRequests();
+}
+
+function render(data){
+  const tbody = document.querySelector("#reqTable tbody");
+  tbody.innerHTML = "";
+
+  data.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.id}</td>
+      <td>${r.name}</td>
+      <td>${r.phone}</td>
+      <td>${r.area}</td>
+      <td>
+        <select id="agent-${r.id}">
+          <option value="">اختر مندوب</option>
+          <option value="مندوب 1">مندوب 1</option>
+          <option value="مندوب 2">مندوب 2</option>
+        </select>
+        <button onclick="assign('${r.id}')">إسناد</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function assign(id){
+  const agent = document.getElementById("agent-"+id).value;
+  if(!agent){
+    alert("اختر مندوب أولًا");
+    return;
+  }
+
+  google.script.run.withSuccessHandler(()=>{
+    alert("تم إسناد الطلب");
+    loadRequests();
+  }).assignRequest(id, agent);
+}
+
+loadRequests();
+</script>
+
+</body>
+</html>
