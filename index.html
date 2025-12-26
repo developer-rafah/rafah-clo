@@ -171,36 +171,20 @@ input{
   background:linear-gradient(135deg,var(--s),var(--p));
   color:#fff;
 }
-
-/* ✅ إضافة صغيرة: تعطيل زر الإرسال أثناء التحميل */
-.submit:disabled{
-  opacity:.55;
-  cursor:not-allowed;
-}
+.submit:disabled{opacity:.55;cursor:not-allowed}
 
 /* الخريطة */
-#map{
-  width:100%;
-  height:300px;
-  border-radius:16px;
-  margin-top:12px;
-}
+#map{width:100%;height:300px;border-radius:16px;margin-top:12px}
 .map-hint{
-  font-size:14px;
-  font-weight:700;
-  color:#fff;
+  font-size:14px;font-weight:700;color:#fff;
   background:rgba(122,94,168,.9);
-  padding:10px 14px;
-  border-radius:12px;
-  text-align:center;
+  padding:10px 14px;border-radius:12px;text-align:center;
 }
 
 /* واتساب */
 .whatsapp{
-  position:fixed;
-  bottom:18px;left:18px;
-  width:52px;height:52px;
-  border-radius:50%;
+  position:fixed;bottom:18px;left:18px;
+  width:52px;height:52px;border-radius:50%;
   background:linear-gradient(135deg,#2eea7b,var(--wa));
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 12px 28px rgba(37,211,102,.45);
@@ -237,15 +221,12 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 <!-- نموذج -->
 <div class="modal" id="formModal">
   <div class="modal-box" id="formBox">
-    <!-- ✅ فقط أضفت id للحقول (بدون تغيير شكلها) -->
     <input id="name" placeholder="الاسم">
     <input id="phone" placeholder="رقم الجوال">
     <input id="area" placeholder="الحي">
 
     <button class="submit" onclick="openMap()">📍 تحديد موقع الاستلام على الخريطة</button>
     <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
-
-    <!-- ✅ زر إرسال له id حتى نغير النص أثناء التحميل -->
     <button id="submitBtn" class="submit" onclick="submitForm()">إرسال</button>
   </div>
 </div>
@@ -253,13 +234,26 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 <!-- الخريطة -->
 <div class="modal" id="mapModal">
   <div class="modal-box">
-    <div class="map-hint">
-      حرّك الدبوس وحدد الموقع الصحيح لاستلام التبرع
-    </div>
+    <div class="map-hint">حرّك الدبوس وحدد الموقع الصحيح لاستلام التبرع</div>
     <div id="map"></div>
     <button class="submit" onclick="confirmLocation()">تأكيد الموقع</button>
   </div>
 </div>
+
+<!-- 🔒 نموذج مخفي للإرسال (حل CORS) -->
+<form id="hiddenForm"
+      action="https://script.google.com/macros/s/AKfycbymr-iAsC3Ap-xHJATJO0P5Va5aOOBtHmphmlL11xmDrgroHbFmckGq6Bm-gMVlmiOd/exec"
+      method="POST"
+      target="hiddenFrame"
+      style="display:none">
+  <input name="name">
+  <input name="phone">
+  <input name="area">
+  <input name="lat">
+  <input name="lng">
+  <input name="source">
+</form>
+<iframe name="hiddenFrame" style="display:none"></iframe>
 
 <a class="whatsapp" href="https://wa.me/966502333499" target="_blank">
   <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg">
@@ -269,17 +263,11 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ✅ رابط الـ Web App */
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbymr-iAsC3Ap-xHJATJO0P5Va5aOOBtHmphmlL11xmDrgroHbFmckGq6Bm-gMVlmiOd/exec";
-
-/* إخفاء نافذة الدخول */
 setTimeout(()=>document.getElementById("entryPopup").style.display="none",2600);
 
-/* Scroll Reveal */
 const obs=new IntersectionObserver(e=>e.forEach(i=>i.isIntersecting&&i.target.classList.add("show")),{threshold:.15});
 document.querySelectorAll(".reveal").forEach(el=>obs.observe(el));
 
-/* عبارات الأثر */
 const impactTexts=["أثرك مستمر","دفء يصل","سترٌ يدوم","خيرٌ يتضاعف"];
 let idx=0;
 setInterval(()=>{
@@ -287,12 +275,9 @@ setInterval(()=>{
   document.getElementById("impactText").textContent=impactTexts[idx];
 },2600);
 
-/* النوافذ */
 function openForm(){document.getElementById("formModal").style.display="flex"}
 
-/* الخريطة */
 let map,marker,lat=null,lng=null;
-
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
   setTimeout(()=>{
@@ -302,7 +287,6 @@ function openMap(){
     marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
   },200);
 }
-
 function confirmLocation(){
   const p=marker.getLatLng();
   lat=p.lat; lng=p.lng;
@@ -310,60 +294,34 @@ function confirmLocation(){
   document.getElementById("mapModal").style.display="none";
 }
 
-/* ✅ إرسال الطلب إلى Google Sheets عبر fetch */
 function submitForm(){
-  const name=(document.getElementById("name").value || "").trim();
-  const phone=(document.getElementById("phone").value || "").trim();
-  const area=(document.getElementById("area").value || "").trim();
+  const name=document.getElementById("name").value.trim();
+  const phone=document.getElementById("phone").value.trim();
+  const area=document.getElementById("area").value.trim();
 
-  if(!name || !phone || !area){
-    alert("يرجى إدخال الاسم ورقم الجوال والحي");
-    return;
-  }
-  if(lat === null || lng === null){
-    alert("يرجى تحديد موقع الاستلام على الخريطة قبل الإرسال");
-    return;
-  }
+  if(!name||!phone||!area){alert("يرجى إدخال جميع البيانات");return;}
+  if(lat===null||lng===null){alert("يرجى تحديد الموقع على الخريطة");return;}
 
-  const btn = document.getElementById("submitBtn");
-  btn.disabled = true;
-  const oldText = btn.textContent;
-  btn.textContent = "جارٍ الإرسال...";
+  const btn=document.getElementById("submitBtn");
+  btn.disabled=true;
+  btn.textContent="جارٍ الإرسال...";
 
-  fetch(WEB_APP_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      phone,
-      area,
-      lat,
-      lng,
-      source: "الموقع"
-    })
-  })
-  .then(async (res) => {
-    // نحاول قراءة JSON سواء نجح أو لا
-    let data = null;
-    try { data = await res.json(); } catch {}
-    if(!res.ok || (data && data.success === false)){
-      throw new Error((data && data.error) ? data.error : "فشل إرسال الطلب");
-    }
-    return data;
-  })
-  .then(()=>{
-    // ✅ رسالة نجاح بعد الحفظ الحقيقي
-    document.querySelector("#formModal .modal-box").innerHTML =
+  const form=document.getElementById("hiddenForm");
+  form.name.value=name;
+  form.phone.value=phone;
+  form.area.value=area;
+  form.lat.value=lat;
+  form.lng.value=lng;
+  form.source.value="الموقع";
+
+  form.submit();
+
+  setTimeout(()=>{
+    document.querySelector("#formModal .modal-box").innerHTML=
       "جزاك الله خيرًا 🌷<br>تم استلام طلبك، وسيتم التواصل معك قريبًا بإذن الله.";
-  })
-  .catch((err)=>{
-    alert("تعذر إرسال الطلب: " + (err?.message || "خطأ غير معروف"));
-    btn.disabled = false;
-    btn.textContent = oldText || "إرسال";
-  });
+  },800);
 }
 </script>
 
 </body>
 </html>
-
