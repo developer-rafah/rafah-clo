@@ -18,6 +18,7 @@
   --muted:#b6b1c6;
   --wa:#25D366;
 }
+
 *{box-sizing:border-box}
 body{
   margin:0;
@@ -27,6 +28,8 @@ body{
     radial-gradient(700px 400px at 80% 20%, rgba(184,143,207,.16), transparent 60%),
     linear-gradient(180deg,var(--bg),var(--bg2));
 }
+
+/* نافذة الدخول */
 .entry-popup{
   position:fixed; inset:0;
   display:flex;align-items:center;justify-content:center;
@@ -42,7 +45,18 @@ body{
   font-size:16px;
   font-weight:800;
   text-align:center;
+  animation:scaleUp .4s ease;
 }
+@keyframes scaleUp{
+  from{transform:scale(.9);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
+
+/* Scroll Reveal */
+.reveal{opacity:0;transform:translateY(22px);transition:.8s}
+.reveal.show{opacity:1;transform:none}
+
+/* التخطيط */
 .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .card{
   width:min(1050px,100%);
@@ -54,10 +68,28 @@ body{
   grid-template-columns:1fr 1fr;
 }
 @media(max-width:900px){.card{grid-template-columns:1fr}}
+
 .content{padding:40px;text-align:center}
-.logo{max-width:170px;margin:0 auto 26px;display:block}
-h1{font-size:36px;font-weight:900}
-p{line-height:1.9}
+.logo{
+  max-width:170px;
+  margin:0 auto 26px;
+  display:block;
+  animation:breath 4s ease-in-out infinite;
+}
+@keyframes breath{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.04)}
+}
+
+h1{
+  font-size:clamp(26px,4vw,40px);
+  font-weight:900;
+  background:linear-gradient(90deg,#fff,var(--s));
+  -webkit-background-clip:text;
+  color:transparent;
+}
+p{line-height:1.9;color:#e5e7eb}
+
 .btn{
   margin-top:28px;
   padding:15px 28px;
@@ -68,11 +100,47 @@ p{line-height:1.9}
   cursor:pointer;
   color:#fff;
   background:linear-gradient(135deg,var(--p),var(--s));
+  box-shadow:0 10px 28px rgba(184,143,207,.35);
 }
-.visual{display:flex;align-items:center;justify-content:center}
+
+/* الجزء التفاعلي */
+.visual{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px;
+}
+.impact{
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  border:1.2px dashed rgba(255,255,255,.22);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+.impact span{
+  position:absolute;
+  font-weight:900;
+  font-size:15px;
+  opacity:0;
+  transform:scale(.9);
+  animation:impactFade 2.6s ease-in-out infinite;
+}
+@keyframes impactFade{
+  0%{opacity:0;transform:scale(.9)}
+  20%{opacity:1;transform:scale(1)}
+  80%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(1.05)}
+}
+
+/* النوافذ */
 .modal{
   position:fixed; inset:0;
   background:rgba(0,0,0,.6);
+  backdrop-filter:blur(6px);
   display:none;
   align-items:center; justify-content:center;
   z-index:999;
@@ -80,6 +148,7 @@ p{line-height:1.9}
 .modal-box{
   width:min(420px,92%);
   background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.25);
   border-radius:22px;
   padding:24px;
 }
@@ -88,7 +157,7 @@ input{
   margin-top:12px;
   padding:13px;
   border-radius:14px;
-  border:none;
+  border:1px solid rgba(255,255,255,.25);
   background:rgba(0,0,0,.35);
   color:#fff;
 }
@@ -102,15 +171,42 @@ input{
   background:linear-gradient(135deg,var(--s),var(--p));
   color:#fff;
 }
-#map{width:100%;height:300px;border-radius:16px;margin-top:12px}
+
+/* ✅ تعطيل زر الإرسال أثناء التحميل */
+.submit:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+/* الخريطة */
+#map{
+  width:100%;
+  height:300px;
+  border-radius:16px;
+  margin-top:12px;
+}
 .map-hint{
   font-size:14px;
   font-weight:700;
+  color:#fff;
   background:rgba(122,94,168,.9);
-  padding:10px;
+  padding:10px 14px;
   border-radius:12px;
   text-align:center;
 }
+
+/* واتساب */
+.whatsapp{
+  position:fixed;
+  bottom:18px;left:18px;
+  width:52px;height:52px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#2eea7b,var(--wa));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 12px 28px rgba(37,211,102,.45);
+}
+.whatsapp img{width:26px}
+
 footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 </style>
 </head>
@@ -122,89 +218,157 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 </div>
 
 <div class="wrap">
-  <div class="card">
-    <div class="content">
-      <img src="https://i.ibb.co/hJdgK2MB/2.png" class="logo">
+  <div class="card reveal">
+    <div class="content reveal">
+      <img src="https://i.ibb.co/hJdgK2MB/2.png" class="logo" alt="جمعية رفاه">
       <h1>تبرع فائض الملابس</h1>
       <p>تبرعك يسهم في ستر الأسر المحتاجة ويعزز التكافل المجتمعي.</p>
       <button class="btn" onclick="openForm()">تبرع الآن</button>
     </div>
-    <div class="visual"></div>
+
+    <div class="visual reveal">
+      <div class="impact">
+        <span id="impactText">أثرك مستمر</span>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- النموذج -->
+<!-- ✅ نموذج (بدل fetch: form POST إلى Apps Script) -->
 <div class="modal" id="formModal">
   <div class="modal-box" id="formBox">
 
-    <form method="POST"
-      action="https://script.google.com/macros/s/AKfycbzjOaXbtkhwzYcrlbi40xGXwZoFLFlVGd-5TZho5Fis_Ttxye2whM3odU-y-BMI-L9w/exec"
-      target="hidden_iframe"
-      onsubmit="afterSubmit()">
+    <!-- ✅ نستخدم form + iframe لتجاوز CORS -->
+    <form id="donationForm" method="POST" target="hidden_iframe" onsubmit="return handleSubmit(event)">
+      <input id="name" name="name" placeholder="الاسم" required>
+      <input id="phone" name="phone" placeholder="رقم الجوال" required>
+      <input id="area" name="area" placeholder="الحي" required>
 
-      <input name="name" placeholder="الاسم" required>
-      <input name="phone" placeholder="رقم الجوال" required>
-      <input name="area" placeholder="الحي" required>
+      <!-- ✅ حقول مخفية للإحداثيات -->
+      <input type="hidden" id="latField" name="lat">
+      <input type="hidden" id="lngField" name="lng">
+      <input type="hidden" id="sourceField" name="source" value="الموقع">
 
-      <input type="hidden" name="lat" id="latField">
-      <input type="hidden" name="lng" id="lngField">
-      <input type="hidden" name="source" value="الموقع">
+      <button class="submit" type="button" onclick="openMap()">📍 تحديد موقع الاستلام على الخريطة</button>
+      <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
 
-      <button type="button" class="submit" onclick="openMap()">📍 تحديد موقع الاستلام</button>
-      <div id="locationStatus"></div>
-
-      <button type="submit" class="submit">إرسال</button>
+      <button id="submitBtn" class="submit" type="submit">إرسال</button>
     </form>
 
-    <iframe name="hidden_iframe" style="display:none;"></iframe>
-
+    <!-- iframe مخفي لاستقبال الرد بدون فتح صفحة جديدة -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none"></iframe>
   </div>
 </div>
 
 <!-- الخريطة -->
 <div class="modal" id="mapModal">
   <div class="modal-box">
-    <div class="map-hint">حرّك الدبوس وحدد الموقع الصحيح</div>
+    <div class="map-hint">
+      حرّك الدبوس وحدد الموقع الصحيح لاستلام التبرع
+    </div>
     <div id="map"></div>
     <button class="submit" onclick="confirmLocation()">تأكيد الموقع</button>
   </div>
 </div>
 
-<footer>© 2025 جمعية رفاه للأرامل والمطلقات</footer>
+<a class="whatsapp" href="https://wa.me/966502333499" target="_blank" rel="noopener">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+</a>
+
+<footer>© 2025 جميع الحقوق محفوظة لججمعية رفاه للأرامل والمطلقات</footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-setTimeout(()=>document.getElementById("entryPopup").style.display="none",2000);
+/* ✅ ضع رابط Web App الصحيح هنا (exec) */
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzjOaXbtkhwzYcrlbi40xGXwZoFLFlVGd-5TZho5Fis_Ttxye2whM3odU-y-BMI-L9w/exec";
 
-function openForm(){
-  document.getElementById("formModal").style.display="flex";
-}
+/* إخفاء نافذة الدخول */
+setTimeout(()=>document.getElementById("entryPopup").style.display="none",2600);
 
-let map, marker;
+/* Scroll Reveal */
+const obs=new IntersectionObserver(e=>e.forEach(i=>i.isIntersecting&&i.target.classList.add("show")),{threshold:.15});
+document.querySelectorAll(".reveal").forEach(el=>obs.observe(el));
+
+/* عبارات الأثر */
+const impactTexts=["أثرك مستمر","دفء يصل","سترٌ يدوم","خيرٌ يتضاعف"];
+let idx=0;
+setInterval(()=>{
+  idx=(idx+1)%impactTexts.length;
+  document.getElementById("impactText").textContent=impactTexts[idx];
+},2600);
+
+/* النوافذ */
+function openForm(){document.getElementById("formModal").style.display="flex"}
+
+/* الخريطة */
+let map,marker,lat=null,lng=null;
 
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
   setTimeout(()=>{
     if(map) return;
-    map = L.map('map').setView([24.7136,46.6753],13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    marker = L.marker(map.getCenter(),{draggable:true}).addTo(map);
+    map=L.map('map').setView([24.7136,46.6753],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
   },200);
 }
 
 function confirmLocation(){
-  const p = marker.getLatLng();
-  document.getElementById("latField").value = p.lat;
-  document.getElementById("lngField").value = p.lng;
-  document.getElementById("locationStatus").innerHTML = "✔️ تم تحديد الموقع بدقة";
+  const p=marker.getLatLng();
+  lat=p.lat; lng=p.lng;
+
+  // ✅ تعبئة الحقول المخفية في الفورم
+  document.getElementById("latField").value = String(lat);
+  document.getElementById("lngField").value = String(lng);
+
+  document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
   document.getElementById("mapModal").style.display="none";
 }
 
-function afterSubmit(){
+/* ✅ إرسال عبر form POST (بدون fetch) */
+function handleSubmit(e){
+  e.preventDefault();
+
+  const name=(document.getElementById("name").value || "").trim();
+  const phone=(document.getElementById("phone").value || "").trim();
+  const area=(document.getElementById("area").value || "").trim();
+
+  if(!name || !phone || !area){
+    alert("يرجى إدخال الاسم ورقم الجوال والحي");
+    return false;
+  }
+  if(lat === null || lng === null){
+    alert("يرجى تحديد موقع الاستلام على الخريطة قبل الإرسال");
+    return false;
+  }
+
+  // ✅ ضبط action قبل الإرسال (مرن)
+  const form = document.getElementById("donationForm");
+  form.action = WEB_APP_URL;
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = "جارٍ الإرسال...";
+
+  // ✅ إرسال فعلي عبر form.submit()
+  form.submit();
+
+  // ✅ عرض رسالة نجاح بعد لحظات (لأن الرد داخل iframe)
   setTimeout(()=>{
     document.getElementById("formBox").innerHTML =
-      "🌷 جزاك الله خيرًا<br>تم استلام طلبك وسيتم التواصل معك قريبًا بإذن الله.";
-  },700);
+      "جزاك الله خيرًا 🌷<br>تم استلام طلبك، وسيتم التواصل معك قريبًا بإذن الله.";
+  }, 900);
+
+  // إعادة الزر غير مطلوبة بعد نجاح الواجهة، لكن نحتفظ بها احتياط
+  setTimeout(()=>{
+    if(document.getElementById("submitBtn")){
+      btn.disabled = false;
+      btn.textContent = oldText || "إرسال";
+    }
+  }, 4000);
+
+  return false;
 }
 </script>
 
