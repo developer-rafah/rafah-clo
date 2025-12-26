@@ -172,12 +172,6 @@ input{
   color:#fff;
 }
 
-/* ✅ تعطيل زر الإرسال أثناء التحميل */
-.submit:disabled{
-  opacity:.55;
-  cursor:not-allowed;
-}
-
 /* الخريطة */
 #map{
   width:100%;
@@ -234,29 +228,15 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
   </div>
 </div>
 
-<!-- ✅ نموذج (بدل fetch: form POST إلى Apps Script) -->
+<!-- نموذج -->
 <div class="modal" id="formModal">
-  <div class="modal-box" id="formBox">
-
-    <!-- ✅ نستخدم form + iframe لتجاوز CORS -->
-    <form id="donationForm" method="POST" target="hidden_iframe" onsubmit="return handleSubmit(event)">
-      <input id="name" name="name" placeholder="الاسم" required>
-      <input id="phone" name="phone" placeholder="رقم الجوال" required>
-      <input id="area" name="area" placeholder="الحي" required>
-
-      <!-- ✅ حقول مخفية للإحداثيات -->
-      <input type="hidden" id="latField" name="lat">
-      <input type="hidden" id="lngField" name="lng">
-      <input type="hidden" id="sourceField" name="source" value="الموقع">
-
-      <button class="submit" type="button" onclick="openMap()">📍 تحديد موقع الاستلام على الخريطة</button>
-      <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
-
-      <button id="submitBtn" class="submit" type="submit">إرسال</button>
-    </form>
-
-    <!-- iframe مخفي لاستقبال الرد بدون فتح صفحة جديدة -->
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none"></iframe>
+  <div class="modal-box">
+    <input placeholder="الاسم">
+    <input placeholder="رقم الجوال">
+    <input placeholder="الحي">
+    <button class="submit" onclick="openMap()">📍 تحديد موقع الاستلام على الخريطة</button>
+    <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
+    <button class="submit" onclick="submitForm()">إرسال</button>
   </div>
 </div>
 
@@ -271,17 +251,14 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
   </div>
 </div>
 
-<a class="whatsapp" href="https://wa.me/966502333499" target="_blank" rel="noopener">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+<a class="whatsapp" href="https://wa.me/966502333499" target="_blank">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg">
 </a>
 
-<footer>© 2025 جميع الحقوق محفوظة لججمعية رفاه للأرامل والمطلقات</footer>
+<footer>© 2025 جميع الحقوق محفوظة لجمعية رفاه للأرامل والمطلقات</footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ✅ ضع رابط Web App الصحيح هنا (exec) */
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzHJ8t4TkjY5irTV73K1nEfpKk_zVonfam0WwdcDjjMW565nHn9IAyeK9wys91BsqLm/exec";
-
 /* إخفاء نافذة الدخول */
 setTimeout(()=>document.getElementById("entryPopup").style.display="none",2600);
 
@@ -300,9 +277,7 @@ setInterval(()=>{
 /* النوافذ */
 function openForm(){document.getElementById("formModal").style.display="flex"}
 
-/* الخريطة */
-let map,marker,lat=null,lng=null;
-
+let map,marker,lat,lng;
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
   setTimeout(()=>{
@@ -312,64 +287,66 @@ function openMap(){
     marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
   },200);
 }
-
 function confirmLocation(){
   const p=marker.getLatLng();
   lat=p.lat; lng=p.lng;
-
-  // ✅ تعبئة الحقول المخفية في الفورم
-  document.getElementById("latField").value = String(lat);
-  document.getElementById("lngField").value = String(lng);
-
   document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
   document.getElementById("mapModal").style.display="none";
 }
+function submitForm(){
 
-/* ✅ إرسال عبر form POST (بدون fetch) */
-function handleSubmit(e){
-  e.preventDefault();
+  const inputs = document.querySelectorAll("#formModal input");
 
-  const name=(document.getElementById("name").value || "").trim();
-  const phone=(document.getElementById("phone").value || "").trim();
-  const area=(document.getElementById("area").value || "").trim();
+  const data = {
+    name: inputs[0].value.trim(),
+    phone: inputs[1].value.trim(),
+    area: inputs[2].value.trim(),
+    lat: lat,
+    lng: lng,
+    source: "الموقع",
+    notes: ""
+  };
 
-  if(!name || !phone || !area){
-    alert("يرجى إدخال الاسم ورقم الجوال والحي");
-    return false;
+  // تحقق بسيط
+  if(!data.name || !data.phone || !data.area){
+    alert("الرجاء إدخال الاسم ورقم الجوال والحي");
+    return;
   }
-  if(lat === null || lng === null){
-    alert("يرجى تحديد موقع الاستلام على الخريطة قبل الإرسال");
-    return false;
+  if(!data.lat || !data.lng){
+    alert("الرجاء تحديد موقع الاستلام على الخريطة");
+    return;
   }
 
-  // ✅ ضبط action قبل الإرسال (مرن)
-  const form = document.getElementById("donationForm");
-  form.action = WEB_APP_URL;
+  // رابط Web App (نفس الذي استخدمته في Postman)
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwObNtICR2IJxrRsAYluvaLL28Rc5Br7bzaTaLC2m0FpzYTql9EYwQSzv4CI8e0TkV/exec";
 
-  const btn = document.getElementById("submitBtn");
-  btn.disabled = true;
-  const oldText = btn.textContent;
-  btn.textContent = "جارٍ الإرسال...";
+  // تعطيل الزر لمنع التكرار
+  const btns = document.querySelectorAll(".submit");
+  btns.forEach(b => b.disabled = true);
 
-  // ✅ إرسال فعلي عبر form.submit()
-  form.submit();
-
-  // ✅ عرض رسالة نجاح بعد لحظات (لأن الرد داخل iframe)
-  setTimeout(()=>{
-    document.getElementById("formBox").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك، وسيتم التواصل معك قريبًا بإذن الله.";
-  }, 900);
-
-  // إعادة الزر غير مطلوبة بعد نجاح الواجهة، لكن نحتفظ بها احتياط
-  setTimeout(()=>{
-    if(document.getElementById("submitBtn")){
-      btn.disabled = false;
-      btn.textContent = oldText || "إرسال";
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.json())
+  .then(res => {
+    if(!res.success){
+      throw new Error(res.error || "فشل الإرسال");
     }
-  }, 4000);
 
-  return false;
+    document.querySelector("#formModal .modal-box").innerHTML =
+      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.";
+  })
+  .catch(err => {
+    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
+    console.error(err);
+    btns.forEach(b => b.disabled = false);
+  });
 }
+
 </script>
 
 </body>
