@@ -237,6 +237,27 @@ input.invalid{
   text-align:center;
 }
 
+/* ======= إضافات جديدة للخريطة (بدون حذف أي شيء) ======= */
+.map-actions{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+.map-actions .submit{
+  margin-top:0;
+  width:auto;
+  flex:1;
+  padding:12px;
+}
+#accuracyInfo{
+  margin-top:10px;
+  font-size:13px;
+  font-weight:800;
+  text-align:center;
+  color:#e5e7eb;
+  opacity:.95;
+}
+
 /* واتساب */
 .whatsapp{
   position:fixed;
@@ -303,7 +324,14 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
       حرّك الدبوس وحدد الموقع الصحيح لاستلام التبرع
     </div>
     <div id="map"></div>
-    <button class="submit" onclick="confirmLocation()">تأكيد الموقع</button>
+
+    <!-- ======= إضافة جديدة (بدون حذف زر التأكيد الأصلي) ======= -->
+    <div class="map-actions">
+      <button class="submit" onclick="locateNow()">📍 استخدم موقعي الآن</button>
+      <button class="submit" onclick="confirmLocation()">تأكيد الموقع</button>
+    </div>
+    <div id="accuracyInfo"></div>
+    <!-- ======= نهاية الإضافة ======= -->
   </div>
 </div>
 
@@ -499,19 +527,32 @@ phoneInput.addEventListener("input", function(){
 
 let map,marker,lat,lng;
 
-/* =========================================================
-   ✅ التعديل المطلوب هنا: تحميل الموقع تلقائيًا + السماح بالتعديل
-   (بدون حذف أي شيء من كودك، فقط تطوير openMap)
-   ========================================================= */
+/* ======= إضافة مساعدة للدقة (جديدة) ======= */
+function getAccuracyLabel(accMeters){
+  if(typeof accMeters !== "number") return "ℹ️ الدقة غير متاحة";
+  if(accMeters <= 20) return "🎯 دقة عالية";
+  if(accMeters <= 50) return "📍 دقة متوسطة";
+  return "⚠️ دقة منخفضة";
+}
+function setAccuracyUI(accMeters){
+  const el = document.getElementById("accuracyInfo");
+  if(!el) return;
+  if(typeof accMeters === "number"){
+    el.textContent = `${getAccuracyLabel(accMeters)} (±${Math.round(accMeters)} متر)`;
+  }else{
+    el.textContent = getAccuracyLabel(accMeters);
+  }
+}
+/* ======= نهاية الإضافة ======= */
+
+/* ======= تطوير openMap لتحميل الموقع تلقائيًا + السماح بالتعديل ======= */
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
 
   setTimeout(()=>{
-    // لو الخريطة موجودة مسبقًا (فتحتها قبل)، فقط صحّح القياس وركز على الموقع الحالي/المحفوظ
+    // لو الخريطة موجودة: فقط حدّث الحجم وركز على أحدث إحداثيات
     if(map){
       map.invalidateSize();
-
-      // لو عندنا إحداثيات محفوظة، ركز عليها
       if(lat && lng && marker){
         map.setView([lat,lng],16);
         marker.setLatLng([lat,lng]);
@@ -519,61 +560,81 @@ function openMap(){
       return;
     }
 
-    // مركز افتراضي
-    const defaultCenter = [24.7136,46.6753]; // الرياض
-
-    // لو في إحداثيات محفوظة من قبل، نبدأ عليها بدل الافتراضي
+    // تحديد مركز البداية: لو محفوظ lat/lng نبدأ به، وإلا الرياض
+    const defaultCenter = [24.7136,46.6753];
     const startCenter = (lat && lng) ? [lat,lng] : defaultCenter;
     const startZoom   = (lat && lng) ? 16 : 13;
 
-    map=L.map('map').setView(startCenter, startZoom);
+    map=L.map('map').setView(startCenter,startZoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
     marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
 
-    // ✅ أي تعديل يدوي على الدبوس يحدث lat/lng فوراً
+    // ✅ السماح بالتعديل اليدوي دائماً
     marker.on("dragend", ()=>{
       const p = marker.getLatLng();
       lat = p.lat; lng = p.lng;
+      document.getElementById("locationStatus").textContent="📍 تم تحديث الموقع بعد التعديل";
+      setAccuracyUI(undefined); // عند التحريك اليدوي لا يوجد accuracy من GPS
       saveDraft();
       updateSubmitState();
-      document.getElementById("locationStatus").textContent="📍 تم تحديث الموقع بعد التعديل";
     });
 
-    // ✅ محاولة تحديد الموقع تلقائيًا (إن لم يكن لدينا موقع محفوظ)
-    if(!(lat && lng) && ("geolocation" in navigator)){
-      document.getElementById("locationStatus").textContent="⏳ جاري تحديد موقعك تلقائيًا...";
-
-      navigator.geolocation.getCurrentPosition(
-        (pos)=>{
-          lat = pos.coords.latitude;
-          lng = pos.coords.longitude;
-
-          map.setView([lat,lng],16);
-          marker.setLatLng([lat,lng]);
-
-          document.getElementById("locationStatus").textContent="📍 تم تحديد موقعك تلقائيًا — يمكنك تعديل الدبوس إذا لزم";
-
-          saveDraft();
-          updateSubmitState();
-        },
-        (err)=>{
-          console.warn("Geolocation error:", err.message);
-          document.getElementById("locationStatus").textContent="⚠️ لم نتمكن من تحديد موقعك، يرجى تحديده يدويًا";
-        },
-        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-      );
+    // ✅ محاولة التقاط الموقع تلقائيًا إذا ما عندنا موقع محفوظ
+    if(!(lat && lng)){
+      locateNow();
     }else{
-      // لو عندنا موقع محفوظ مسبقًا
-      if(lat && lng){
-        document.getElementById("locationStatus").textContent="📍 تم تحميل موقعك المحفوظ — يمكنك تعديل الدبوس إذا لزم";
-      }else if(!("geolocation" in navigator)){
-        document.getElementById("locationStatus").textContent="❌ المتصفح لا يدعم تحديد الموقع";
-      }
+      document.getElementById("locationStatus").textContent="📍 تم تحميل موقعك المحفوظ — يمكنك تعديل الدبوس إذا لزم";
+      setAccuracyUI(undefined);
     }
-
   },200);
 }
+
+/* ======= دالة جديدة: إعادة تحديد الموقع عند الضغط على زر "استخدم موقعي الآن" ======= */
+function locateNow(){
+  if(!("geolocation" in navigator)){
+    document.getElementById("locationStatus").textContent="❌ المتصفح لا يدعم تحديد الموقع";
+    setAccuracyUI(undefined);
+    return;
+  }
+
+  document.getElementById("locationStatus").textContent="⏳ جاري تحديد موقعك تلقائيًا...";
+  setAccuracyUI(undefined);
+
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+
+      const acc = pos.coords.accuracy;
+
+      // لو الخريطة/المؤشر موجودين
+      if(map){
+        map.setView([lat,lng],16);
+      }
+      if(marker){
+        marker.setLatLng([lat,lng]);
+      }
+
+      document.getElementById("locationStatus").textContent="✔️ تم تحديد موقعك تلقائيًا — يمكنك تعديل الدبوس إذا لزم";
+      setAccuracyUI(acc);
+
+      saveDraft();
+      updateSubmitState();
+    },
+    (err)=>{
+      console.warn("Geolocation error:", err && err.message ? err.message : err);
+      document.getElementById("locationStatus").textContent="⚠️ لم نتمكن من تحديد موقعك، يرجى تحديده يدويًا";
+      setAccuracyUI(undefined);
+    },
+    {
+      enableHighAccuracy:true,
+      timeout:10000,
+      maximumAge:0
+    }
+  );
+}
+/* ======= نهاية الإضافة ======= */
 
 function confirmLocation(){
   const p=marker.getLatLng();
