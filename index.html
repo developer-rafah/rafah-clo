@@ -498,13 +498,80 @@ phoneInput.addEventListener("input", function(){
 });
 
 let map,marker,lat,lng;
+
+/* =========================================================
+   ✅ التعديل المطلوب هنا: تحميل الموقع تلقائيًا + السماح بالتعديل
+   (بدون حذف أي شيء من كودك، فقط تطوير openMap)
+   ========================================================= */
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
+
   setTimeout(()=>{
-    if(map) return;
-    map=L.map('map').setView([24.7136,46.6753],13);
+    // لو الخريطة موجودة مسبقًا (فتحتها قبل)، فقط صحّح القياس وركز على الموقع الحالي/المحفوظ
+    if(map){
+      map.invalidateSize();
+
+      // لو عندنا إحداثيات محفوظة، ركز عليها
+      if(lat && lng && marker){
+        map.setView([lat,lng],16);
+        marker.setLatLng([lat,lng]);
+      }
+      return;
+    }
+
+    // مركز افتراضي
+    const defaultCenter = [24.7136,46.6753]; // الرياض
+
+    // لو في إحداثيات محفوظة من قبل، نبدأ عليها بدل الافتراضي
+    const startCenter = (lat && lng) ? [lat,lng] : defaultCenter;
+    const startZoom   = (lat && lng) ? 16 : 13;
+
+    map=L.map('map').setView(startCenter, startZoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
     marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
+
+    // ✅ أي تعديل يدوي على الدبوس يحدث lat/lng فوراً
+    marker.on("dragend", ()=>{
+      const p = marker.getLatLng();
+      lat = p.lat; lng = p.lng;
+      saveDraft();
+      updateSubmitState();
+      document.getElementById("locationStatus").textContent="📍 تم تحديث الموقع بعد التعديل";
+    });
+
+    // ✅ محاولة تحديد الموقع تلقائيًا (إن لم يكن لدينا موقع محفوظ)
+    if(!(lat && lng) && ("geolocation" in navigator)){
+      document.getElementById("locationStatus").textContent="⏳ جاري تحديد موقعك تلقائيًا...";
+
+      navigator.geolocation.getCurrentPosition(
+        (pos)=>{
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+
+          map.setView([lat,lng],16);
+          marker.setLatLng([lat,lng]);
+
+          document.getElementById("locationStatus").textContent="📍 تم تحديد موقعك تلقائيًا — يمكنك تعديل الدبوس إذا لزم";
+
+          saveDraft();
+          updateSubmitState();
+        },
+        (err)=>{
+          console.warn("Geolocation error:", err.message);
+          document.getElementById("locationStatus").textContent="⚠️ لم نتمكن من تحديد موقعك، يرجى تحديده يدويًا";
+        },
+        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+      );
+    }else{
+      // لو عندنا موقع محفوظ مسبقًا
+      if(lat && lng){
+        document.getElementById("locationStatus").textContent="📍 تم تحميل موقعك المحفوظ — يمكنك تعديل الدبوس إذا لزم";
+      }else if(!("geolocation" in navigator)){
+        document.getElementById("locationStatus").textContent="❌ المتصفح لا يدعم تحديد الموقع";
+      }
+    }
+
   },200);
 }
 
