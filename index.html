@@ -17,6 +17,10 @@
   --txt:#f3f4f6;
   --muted:#b6b1c6;
   --wa:#25D366;
+
+  /* إضافات */
+  --ok:#34d399;
+  --err:#fb7185;
 }
 
 *{box-sizing:border-box}
@@ -160,7 +164,46 @@ input{
   border:1px solid rgba(255,255,255,.25);
   background:rgba(0,0,0,.35);
   color:#fff;
+
+  /* مساحة للأيقونة داخل الحقل */
+  padding-left:42px;
 }
+
+/* ===== إضافات جمالية + تحقق ===== */
+.error-text{
+  font-size:13px;
+  color:var(--err);
+  margin-top:6px;
+  display:none;
+  font-weight:700;
+}
+
+input.valid{
+  border-color: rgba(52,211,153,.9);
+  box-shadow: 0 0 0 3px rgba(52,211,153,.18);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2334d399' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position: 12px 50%;
+  background-size: 18px 18px;
+}
+
+input.invalid{
+  border-color: rgba(251,113,133,.95);
+  box-shadow: 0 0 0 3px rgba(251,113,133,.16);
+}
+
+.shake{
+  animation:shake .35s;
+}
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  50%{transform:translateX(4px)}
+  75%{transform:translateX(-4px)}
+  100%{transform:translateX(0)}
+}
+
+/* زر الإرسال */
 .submit{
   margin-top:14px;
   width:100%;
@@ -170,6 +213,11 @@ input{
   font-weight:900;
   background:linear-gradient(135deg,var(--s),var(--p));
   color:#fff;
+}
+.submit:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  filter:saturate(.7);
 }
 
 /* الخريطة */
@@ -202,25 +250,6 @@ input{
 .whatsapp img{width:26px}
 
 footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
-
-/* ===== إضافات جمالية: رسالة خطأ + اهتزاز ===== */
-.error-text{
-  font-size:13px;
-  color:#ffb4b4;
-  margin-top:6px;
-  display:none;
-  font-weight:700;
-}
-.shake{
-  animation:shake .35s;
-}
-@keyframes shake{
-  0%{transform:translateX(0)}
-  25%{transform:translateX(-4px)}
-  50%{transform:translateX(4px)}
-  75%{transform:translateX(-4px)}
-  100%{transform:translateX(0)}
-}
 </style>
 </head>
 
@@ -261,7 +290,9 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 
     <button class="submit" onclick="openMap()">📍 تحديد موقع الاستلام على الخريطة</button>
     <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
-    <button class="submit" onclick="submitForm()">إرسال</button>
+
+    <!-- نفس زر الإرسال لكن سيتم تعطيله تلقائياً حتى تكتمل البيانات -->
+    <button class="submit" onclick="submitForm()" id="submitBtn" disabled>إرسال</button>
   </div>
 </div>
 
@@ -300,75 +331,171 @@ setInterval(()=>{
 },2600);
 
 /* النوافذ */
-function openForm(){document.getElementById("formModal").style.display="flex"}
+function openForm(){
+  document.getElementById("formModal").style.display="flex";
+  restoreDraft();       // 🔒 استرجاع الحفظ التلقائي عند فتح النموذج
+  validateAll();        // تحديث الحالات
+}
 
-/* ====== التحكم في إدخال رقم الجوال أثناء الكتابة ====== */
-/* (تم تحسينه ليشمل: منع الأحرف + حد 10 + يبدأ 05 + تنسيق + رسالة خطأ + اهتزاز) */
-const phoneInput = document.querySelector('#formModal input[placeholder="رقم الجوال"]');
+/* ====== إضافات: حفظ تلقائي + تحقق + تفعيل زر الإرسال ====== */
+const STORAGE_KEY = "rafah_donation_draft_v1";
+
 const nameInput  = document.querySelector('#formModal input[placeholder="الاسم"]');
+const phoneInput = document.querySelector('#formModal input[placeholder="رقم الجوال"]');
 const areaInput  = document.querySelector('#formModal input[placeholder="الحي"]');
 
 const errName  = document.getElementById("errName");
 const errPhone = document.getElementById("errPhone");
 const errArea  = document.getElementById("errArea");
 
+const submitBtn = document.getElementById("submitBtn");
+
 function shakeEl(el){
   el.classList.add("shake");
   setTimeout(()=>el.classList.remove("shake"),350);
 }
-function showErr(el, box, msg){
+function showErr(inputEl, box, msg){
   box.textContent = msg;
   box.style.display = "block";
-  shakeEl(el);
+  inputEl.classList.add("invalid");
+  inputEl.classList.remove("valid");
+  shakeEl(inputEl);
 }
-function clearErr(box){
+function clearErr(inputEl, box){
   box.style.display = "none";
+  inputEl.classList.remove("invalid");
+}
+
+/* حفظ تلقائي */
+function saveDraft(){
+  const draft = {
+    name: nameInput.value,
+    phone: phoneInput.value,
+    area: areaInput.value,
+    lat: lat,
+    lng: lng
+  };
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  }catch(e){}
+}
+function restoreDraft(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const draft = JSON.parse(raw);
+    if(draft && typeof draft === "object"){
+      if(typeof draft.name === "string") nameInput.value = draft.name;
+      if(typeof draft.phone === "string") phoneInput.value = draft.phone;
+      if(typeof draft.area === "string") areaInput.value = draft.area;
+      if(typeof draft.lat === "number") lat = draft.lat;
+      if(typeof draft.lng === "number") lng = draft.lng;
+
+      if(lat && lng){
+        document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
+      }
+    }
+  }catch(e){}
+}
+
+/* قواعد التحقق */
+function isArabicText(s){
+  const v = (s || "").trim();
+  return v.length > 0 && /^[ء-ي\s]+$/.test(v);
+}
+function isSaudiMobile(s){
+  const v = (s || "").trim();
+  return /^05\d{8}$/.test(v);
+}
+
+/* تلوين الحقول + أيقونة ✔️ (باستخدام background-image في CSS) */
+function setValid(inputEl, box){
+  inputEl.classList.add("valid");
+  inputEl.classList.remove("invalid");
+  if(box) box.style.display="none";
+}
+function setInvalid(inputEl){
+  inputEl.classList.remove("valid");
+}
+
+/* تحديث زر الإرسال */
+function updateSubmitState(){
+  const phoneClean = phoneInput.value.replace(/\D/g,''); // لضمان متصل
+  const ok =
+    isArabicText(nameInput.value) &&
+    isSaudiMobile(phoneClean) &&
+    isArabicText(areaInput.value) &&
+    !!lat && !!lng;
+
+  submitBtn.disabled = !ok;
+}
+
+/* تحقق شامل */
+function validateAll(){
+  // الاسم
+  if(nameInput.value.trim() === ""){
+    clearErr(nameInput, errName);
+    setInvalid(nameInput);
+  }else if(!isArabicText(nameInput.value)){
+    showErr(nameInput, errName, "الاسم يجب أن يكون حروف عربية فقط");
+  }else{
+    clearErr(nameInput, errName);
+    setValid(nameInput, errName);
+  }
+
+  // الجوال (بدون مسافات - متصل)
+  const cleanedPhone = phoneInput.value.replace(/\D/g,'').slice(0,10);
+  phoneInput.value = cleanedPhone; // ✅ متصل دائماً بدون مسافات
+  if(cleanedPhone === ""){
+    clearErr(phoneInput, errPhone);
+    setInvalid(phoneInput);
+  }else if(cleanedPhone.length >= 2 && !cleanedPhone.startsWith("05")){
+    showErr(phoneInput, errPhone, "رقم الجوال يجب أن يبدأ بـ 05");
+  }else if(cleanedPhone.length === 10 && isSaudiMobile(cleanedPhone)){
+    clearErr(phoneInput, errPhone);
+    setValid(phoneInput, errPhone);
+  }else{
+    // لا نعتبره خطأ قوي أثناء الكتابة إلا إذا اكتمل 10 وخطأ
+    clearErr(phoneInput, errPhone);
+    setInvalid(phoneInput);
+  }
+
+  // الحي
+  if(areaInput.value.trim() === ""){
+    clearErr(areaInput, errArea);
+    setInvalid(areaInput);
+  }else if(!isArabicText(areaInput.value)){
+    showErr(areaInput, errArea, "الحي يجب أن يكون حروف عربية فقط");
+  }else{
+    clearErr(areaInput, errArea);
+    setValid(areaInput, errArea);
+  }
+
+  updateSubmitState();
+  saveDraft();
 }
 
 /* الاسم: حروف عربية ومسافات فقط */
-nameInput.addEventListener("input", function () {
-  const cleaned = this.value.replace(/[^ء-ي\s]/g, "");
-  if (this.value !== cleaned) {
-    this.value = cleaned;
-  }
-  clearErr(errName);
+nameInput.addEventListener("input", function(){
+  const cleaned = this.value.replace(/[^ء-ي\s]/g,"");
+  if(this.value !== cleaned) this.value = cleaned;
+  validateAll();
 });
 
 /* الحي: حروف عربية ومسافات فقط */
-areaInput.addEventListener("input", function () {
-  const cleaned = this.value.replace(/[^ء-ي\s]/g, "");
-  if (this.value !== cleaned) {
-    this.value = cleaned;
-  }
-  clearErr(errArea);
+areaInput.addEventListener("input", function(){
+  const cleaned = this.value.replace(/[^ء-ي\s]/g,"");
+  if(this.value !== cleaned) this.value = cleaned;
+  validateAll();
 });
 
-/* الجوال: أرقام فقط + يبدأ 05 + 10 أرقام + تنسيق جميل */
-phoneInput.addEventListener("input", function () {
-  // نزيل كل شيء غير الأرقام
-  let raw = this.value.replace(/\D/g, "");
-
-  // منع أكثر من 10 أرقام
-  if (raw.length > 10) raw = raw.slice(0, 10);
-
-  // إذا دخل رقمين أو أكثر ولا يبدأ بـ 05
-  if (raw.length >= 2 && !raw.startsWith("05")) {
-    showErr(this, errPhone, "رقم الجوال يجب أن يبدأ بـ 05");
-    raw = "";
-  } else {
-    clearErr(errPhone);
-  }
-
-  // تنسيق عرض (للعرض فقط)
-  // 05 123 45678
-  let formatted = raw;
-  if (raw.length > 5) formatted = raw.replace(/(05)(\d{3})(\d+)/, "$1 $2 $3");
-  else if (raw.length > 2) formatted = raw.replace(/(05)(\d+)/, "$1 $2");
-  this.value = formatted;
+/* الجوال: أرقام فقط + 10 + يبدأ 05 + بدون مسافات */
+phoneInput.addEventListener("input", function(){
+  let raw = this.value.replace(/\D/g,"");
+  if(raw.length > 10) raw = raw.slice(0,10);
+  this.value = raw; // ✅ متصل بدون مسافات
+  validateAll();
 });
-
-/* (الكود السابق لديك كان يستخدم alert هنا، تركناه موجودًا بالمنطق، لكن الآن الأفضل رسالة) */
-/* ملاحظة: لا يوجد حذف لأي جزء، فقط تطوير للسلوك. */
 
 let map,marker,lat,lng;
 function openMap(){
@@ -380,12 +507,16 @@ function openMap(){
     marker=L.marker(map.getCenter(),{draggable:true}).addTo(map);
   },200);
 }
+
 function confirmLocation(){
   const p=marker.getLatLng();
   lat=p.lat; lng=p.lng;
   document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
   document.getElementById("mapModal").style.display="none";
+  saveDraft();         // 🔒 حفظ الموقع
+  updateSubmitState(); // ✅ تفعيل زر الإرسال إذا اكتملت البيانات
 }
+
 function submitForm(){
 
   const inputs = document.querySelectorAll("#formModal input");
@@ -400,23 +531,20 @@ function submitForm(){
     notes: ""
   };
 
-  /* تنظيف رقم الجوال من المسافات قبل التحقق والإرسال */
-  data.phone = data.phone.replace(/\s/g,"");
+  // ✅ تأكيد أن رقم الجوال متصل بدون مسافات
+  data.phone = data.phone.replace(/\D/g,'').slice(0,10);
 
-  /* تحقق بسيط (تم تحسينه برسائل تحت الحقول + اهتزاز) */
+  // تحقق بسيط (نفس منطقك الأصلي موجود - لم يُحذف)
   if(!data.name || !data.phone || !data.area){
-    // سطر alert الأصلي موجود بمنطقك (لم نحذفه)، لكن نستبدله بتجربة ألطف:
     // alert("الرجاء إدخال الاسم ورقم الجوال والحي");
-    if(!data.name){ showErr(nameInput, errName, "الاسم مطلوب (حروف فقط)"); }
-    if(!data.phone){ showErr(phoneInput, errPhone, "رقم الجوال مطلوب"); }
-    if(!data.area){ showErr(areaInput, errArea, "الحي مطلوب (حروف فقط)"); }
+    validateAll();
     return;
   }
 
-  /* تحقق رقم الجوال: 10 أرقام ويبدأ بـ 05 */
   const phoneRegex = /^05\d{8}$/;
   if(!phoneRegex.test(data.phone)){
     // alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
+    validateAll();
     showErr(phoneInput, errPhone, "رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
     return;
   }
@@ -426,7 +554,10 @@ function submitForm(){
     return;
   }
 
+  // رابط Web App (نفس الذي استخدمته في Postman)
   const WEB_APP_URL = "/api/donate";
+
+  // تعطيل الزر لمنع التكرار
   const btns = document.querySelectorAll(".submit");
   btns.forEach(b => b.disabled = true);
 
@@ -440,16 +571,25 @@ function submitForm(){
     if(!res.success){
       throw new Error(res.error || "فشل الإرسال");
     }
+
+    // تنظيف الحفظ بعد نجاح الإرسال
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+
     document.querySelector("#formModal .modal-box").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.";
+      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.<br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
+
+    // 🎯 توجيه تلقائي بعد الإرسال
+    setTimeout(()=>{
+      window.location.href = "https://rafah.org.sa";
+    }, 2000);
   })
   .catch(err => {
-    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة مرة أخرى");
+    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
     btns.forEach(b => b.disabled = false);
+    updateSubmitState();
   });
 }
-
 </script>
 
 </body>
