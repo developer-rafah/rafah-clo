@@ -277,6 +277,19 @@ setInterval(()=>{
 /* النوافذ */
 function openForm(){document.getElementById("formModal").style.display="flex"}
 
+/* ====== التحكم في إدخال رقم الجوال أثناء الكتابة ====== */
+const phoneInput = document.querySelector("#formModal input:nth-child(2)");
+phoneInput.addEventListener("input", function () {
+  this.value = this.value.replace(/\D/g, "");
+  if (this.value.length > 10) {
+    this.value = this.value.slice(0, 10);
+  }
+  if (this.value.length >= 2 && !this.value.startsWith("05")) {
+    alert("رقم الجوال يجب أن يبدأ بـ 05");
+    this.value = "";
+  }
+});
+
 let map,marker,lat,lng;
 function openMap(){
   document.getElementById("mapModal").style.display="flex";
@@ -307,36 +320,29 @@ function submitForm(){
     notes: ""
   };
 
-  // تحقق بسيط
   if(!data.name || !data.phone || !data.area){
     alert("الرجاء إدخال الاسم ورقم الجوال والحي");
     return;
   }
 
-// تحقق رقم الجوال: 10 أرقام ويبدأ بـ 05
-const phoneRegex = /^05\d{8}$/;
-if(!phoneRegex.test(data.phone)){
-  alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
-  return;
-}
-  
+  const phoneRegex = /^05\d{8}$/;
+  if(!phoneRegex.test(data.phone)){
+    alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
+    return;
+  }
+
   if(!data.lat || !data.lng){
     alert("الرجاء تحديد موقع الاستلام على الخريطة");
     return;
   }
 
-  // رابط Web App (نفس الذي استخدمته في Postman)
   const WEB_APP_URL = "/api/donate";
-
-  // تعطيل الزر لمنع التكرار
   const btns = document.querySelectorAll(".submit");
   btns.forEach(b => b.disabled = true);
 
   fetch(WEB_APP_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify(data)
   })
   .then(res => res.json())
@@ -344,7 +350,6 @@ if(!phoneRegex.test(data.phone)){
     if(!res.success){
       throw new Error(res.error || "فشل الإرسال");
     }
-
     document.querySelector("#formModal .modal-box").innerHTML =
       "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.";
   })
@@ -354,7 +359,6 @@ if(!phoneRegex.test(data.phone)){
     btns.forEach(b => b.disabled = false);
   });
 }
-
 </script>
 
 </body>
