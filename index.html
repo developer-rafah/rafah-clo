@@ -312,6 +312,14 @@ function submitForm(){
     alert("الرجاء إدخال الاسم ورقم الجوال والحي");
     return;
   }
+
+// تحقق رقم الجوال: 10 أرقام ويبدأ بـ 05
+const phoneRegex = /^05\d{8}$/;
+if(!phoneRegex.test(data.phone)){
+  alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
+  return;
+}
+  
   if(!data.lat || !data.lng){
     alert("الرجاء تحديد موقع الاستلام على الخريطة");
     return;
