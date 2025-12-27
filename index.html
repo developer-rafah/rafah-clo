@@ -292,7 +292,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
     <div id="locationStatus" style="margin-top:10px;color:#b88fcf"></div>
 
     <!-- نفس زر الإرسال لكن سيتم تعطيله تلقائياً حتى تكتمل البيانات -->
-    <button class="submit" onclick="submitForm()" id="submitBtn" disabled>إرسال</button>
+    <button class="submit" onclick="openConfirmModal()" id="submitBtn" disabled>إرسال</button>
   </div>
 </div>
 
@@ -590,7 +590,39 @@ function submitForm(){
     updateSubmitState();
   });
 }
+  /* ===== نافذة تأكيد البيانات ===== */
+function openConfirmModal(){
+  // تعبئة بيانات التأكيد
+  document.getElementById("cName").textContent  = nameInput.value;
+  document.getElementById("cPhone").textContent = phoneInput.value;
+  document.getElementById("cArea").textContent  = areaInput.value;
+
+  document.getElementById("confirmModal").style.display = "flex";
+}
+
+function closeConfirm(){
+  document.getElementById("confirmModal").style.display = "none";
+}
+
+/* الإرسال الفعلي بعد التأكيد */
+function confirmSubmit(){
+  closeConfirm();
+  submitForm(); // نفس دالة الإرسال الأصلية بدون تغيير
+}
 </script>
+<!-- نافذة تأكيد البيانات -->
+<div class="modal" id="confirmModal">
+  <div class="modal-box">
+    <h3 style="margin-top:0;text-align:center">تأكيد بيانات الطلب</h3>
+
+    <p><strong>الاسم:</strong> <span id="cName"></span></p>
+    <p><strong>رقم الجوال:</strong> <span id="cPhone"></span></p>
+    <p><strong>الحي:</strong> <span id="cArea"></span></p>
+
+    <button class="submit" onclick="closeConfirm()">❌ تعديل البيانات</button>
+    <button class="submit" onclick="confirmSubmit()">✅ تأكيد الإرسال</button>
+  </div>
+</div>
 
 </body>
 </html>
