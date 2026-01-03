@@ -696,8 +696,11 @@ function submitForm(){
   })
   .then(res => res.json())
   .then(res => {
-    if(!res.success){
-      throw new Error(res.error || "فشل الإرسال");
+
+    // ✅✅ التعديل المهم: اقبل ok أو success
+    const isOk = !!(res && (res.success === true || res.ok === true));
+    if(!isOk){
+      throw new Error((res && res.error) ? res.error : "فشل الإرسال");
     }
 
     // تنظيف الحفظ بعد نجاح الإرسال
@@ -712,7 +715,8 @@ function submitForm(){
     }, 2000);
   })
   .catch(err => {
-    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
+    // ✅ تحسين: أظهر سبب الخطأ الحقيقي لو موجود
+    alert((err && err.message) ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
