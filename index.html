@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تبرع فائض11 الملابس | جمعية رفاه</title>
+<title>تبرع فائض الملابس | جمعية رفاه</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -696,11 +696,8 @@ function submitForm(){
   })
   .then(res => res.json())
   .then(res => {
-
-    // ✅✅ التعديل المهم: اقبل ok أو success
-    const isOk = !!(res && (res.success === true || res.ok === true));
-    if(!isOk){
-      throw new Error((res && res.error) ? res.error : "فشل الإرسال");
+    if(!res.success){
+      throw new Error(res.error || "فشل الإرسال");
     }
 
     // تنظيف الحفظ بعد نجاح الإرسال
@@ -715,8 +712,7 @@ function submitForm(){
     }, 2000);
   })
   .catch(err => {
-    // ✅ تحسين: أظهر سبب الخطأ الحقيقي لو موجود
-    alert((err && err.message) ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
+    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
