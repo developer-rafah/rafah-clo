@@ -1,0 +1,16 @@
+Options -Indexes
+RewriteEngine On
+
+# صفحة بيضاء عند فتح المجلدات فقط (وليس ملفاتها)
+RewriteRule ^(css|js|img|api)/?$ blank.html [L]
+
+# حظر ملفات حساسة شائعة
+<FilesMatch "(^\.|\.env|composer\.(json|lock)|package(-lock)?\.json|yarn\.lock|\.sql|\.log)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
