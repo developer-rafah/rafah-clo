@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تبرع فائض الملابس1111 | جمعية رفاه</title>
+<title>تبرع فائض الملابس | جمعية رفاه</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -21,6 +21,10 @@
   /* إضافات */
   --ok:#34d399;
   --err:#fb7185;
+
+  /* إضافات للنجاح */
+  --card: rgba(255,255,255,.10);
+  --cardBorder: rgba(255,255,255,.22);
 }
 
 *{box-sizing:border-box}
@@ -271,6 +275,112 @@ input.invalid{
 .whatsapp img{width:26px}
 
 footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
+
+/* =========================================================
+   ✅ تحسين نافذة النجاح (إضافة بدون حذف أي شيء)
+   ========================================================= */
+.success-box{
+  width:min(520px,94%);
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+  border:1px solid var(--cardBorder);
+  border-radius:24px;
+  padding:22px;
+  box-shadow: 0 18px 46px rgba(0,0,0,.42);
+}
+.success-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.success-icon{
+  width:44px;height:44px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  background: rgba(52,211,153,.16);
+  border:1px solid rgba(52,211,153,.35);
+  font-size:22px;
+}
+.success-title{
+  margin:0;
+  font-size:18px;
+  font-weight:900;
+}
+.success-sub{
+  margin:4px 0 0;
+  color:#e5e7eb;
+  opacity:.92;
+  line-height:1.8;
+  font-size:14px;
+}
+.req-card{
+  margin-top:14px;
+  padding:14px 14px;
+  border-radius:18px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.14);
+}
+.req-label{
+  font-size:12px;
+  color:rgba(255,255,255,.72);
+  font-weight:800;
+  margin-bottom:6px;
+}
+.req-id{
+  font-size:18px;
+  font-weight:900;
+  letter-spacing:.4px;
+  direction:ltr;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:14px;
+  background: rgba(255,255,255,.06);
+  border:1px dashed rgba(184,143,207,.45);
+  overflow-wrap:anywhere;
+}
+.req-actions{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+@media(max-width:420px){ .req-actions{grid-template-columns:1fr} }
+
+.btn-ghost{
+  background: rgba(255,255,255,.08);
+}
+.btn-ok{
+  background: linear-gradient(135deg, rgba(52,211,153,1), rgba(16,185,129,1));
+}
+.btn-site{
+  background: linear-gradient(135deg, var(--p), var(--s));
+}
+.small-note{
+  margin-top:10px;
+  font-size:12px;
+  color:rgba(255,255,255,.72);
+  line-height:1.7;
+}
+.toast{
+  position:fixed;
+  bottom:18px;
+  right:18px;
+  z-index:10000;
+  background: rgba(0,0,0,.74);
+  border:1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(10px);
+  color:#fff;
+  padding:10px 12px;
+  border-radius:14px;
+  font-size:13px;
+  font-weight:800;
+  display:none;
+  max-width:min(340px,92vw);
+}
+.toast.show{display:block; animation: toastIn .18s ease}
+@keyframes toastIn{
+  from{transform:translateY(8px);opacity:0}
+  to{transform:none;opacity:1}
+}
 </style>
 </head>
 
@@ -341,6 +451,9 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin:20px}
 
 <footer>© 2025 جميع الحقوق محفوظة لجمعية رفاه للأرامل والمطلقات</footer>
 
+<!-- ✅ Toast بسيط -->
+<div class="toast" id="toast"></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* إخفاء نافذة الدخول */
@@ -392,6 +505,16 @@ function showErr(inputEl, box, msg){
 function clearErr(inputEl, box){
   box.style.display = "none";
   inputEl.classList.remove("invalid");
+}
+
+/* ✅ Toast */
+function showToast(text){
+  const t = document.getElementById("toast");
+  if(!t) return;
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(showToast._tmr);
+  showToast._tmr = setTimeout(()=>t.classList.remove("show"), 1800);
 }
 
 /* حفظ تلقائي */
@@ -645,6 +768,80 @@ function confirmLocation(){
   updateSubmitState(); // ✅ تفعيل زر الإرسال إذا اكتملت البيانات
 }
 
+/* =========================================================
+   ✅ تحسين بعد الإرسال: عرض رقم الطلب + أزرار (بدون حذف الأساسي)
+   ========================================================= */
+const AUTO_REDIRECT_AFTER_SUCCESS = false; // ← لو تبغى ترجعه "true" يشتغل التحويل التلقائي
+let LAST_REQUEST_ID = "";
+
+function openSuccessModal(requestId){
+  LAST_REQUEST_ID = String(requestId || "").trim() || "";
+  document.getElementById("sRequestId").textContent = LAST_REQUEST_ID || "غير متاح";
+  document.getElementById("successModal").style.display = "flex";
+}
+function closeSuccess(){
+  document.getElementById("successModal").style.display = "none";
+}
+async function copyRequestId(){
+  if(!LAST_REQUEST_ID){ showToast("رقم الطلب غير متاح"); return; }
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(LAST_REQUEST_ID);
+    }else{
+      const ta = document.createElement("textarea");
+      ta.value = LAST_REQUEST_ID;
+      ta.style.position="fixed";
+      ta.style.opacity="0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    showToast("تم نسخ رقم الطلب ✅");
+  }catch(e){
+    console.error(e);
+    showToast("تعذر النسخ — انسخ يدويًا");
+  }
+}
+function printRequestId(){
+  if(!LAST_REQUEST_ID){ alert("رقم الطلب غير متاح للطباعة"); return; }
+  const w = window.open("", "_blank", "width=520,height=420");
+  if(!w){ alert("المتصفح منع فتح نافذة الطباعة"); return; }
+  w.document.write(`
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="utf-8" />
+      <title>طباعة رقم الطلب</title>
+      <style>
+        body{font-family:Tajawal,Arial;padding:24px; background:#fff; color:#111}
+        .box{border:1px solid #ddd;border-radius:14px;padding:18px}
+        h2{margin:0 0 10px}
+        .id{direction:ltr;text-align:left;font-size:20px;font-weight:900;padding:12px;border-radius:12px;background:#f7f7fb;border:1px dashed #b88fcf}
+        .muted{color:#555;font-size:13px;line-height:1.7;margin-top:10px}
+        button{margin-top:14px;padding:10px 14px;border:0;border-radius:12px;background:#7a5ea8;color:#fff;font-weight:800;cursor:pointer}
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <h2>رقم طلب التبرع</h2>
+        <div class="id">${String(LAST_REQUEST_ID).replace(/</g,"&lt;")}</div>
+        <div class="muted">احتفظ برقم الطلب للمتابعة عند الحاجة.</div>
+        <button onclick="window.print()">🖨️ طباعة</button>
+      </div>
+    </body>
+    </html>
+  `);
+  w.document.close();
+}
+function goToRafahSite(){
+  window.open("https://rafah.org.sa", "_blank");
+}
+function tryClosePage(){
+  // ملاحظة: قد لا يسمح المتصفح بإغلاق تبويب لم يفتح عبر window.open
+  window.close();
+  setTimeout(()=>{ showToast("إذا لم تُغلق الصفحة، أغلقها يدويًا"); }, 250);
+}
+
 function submitForm(){
 
   const inputs = document.querySelectorAll("#formModal input");
@@ -700,16 +897,27 @@ function submitForm(){
       throw new Error(res.error || "فشل الإرسال");
     }
 
+    // ✅ استخراج رقم الطلب من رد السيرفر
+    const requestId =
+      res.requestId ||
+      res.requestID ||
+      res.id ||
+      (res.data && (res.data.requestId || res.data.id)) ||
+      "";
+
     // تنظيف الحفظ بعد نجاح الإرسال
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 
-    document.querySelector("#formModal .modal-box").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.<br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
+    // ✅ بدل الاستبدال النصي القديم، نظهر نافذة نجاح أجمل (مع الاحتفاظ بكودك الأساسي)
+    document.getElementById("formModal").style.display = "none";
+    openSuccessModal(requestId);
 
-    // 🎯 توجيه تلقائي بعد الإرسال
-    setTimeout(()=>{
-      window.location.href = "https://rafah.org.sa";
-    }, 2000);
+    // 🎯 توجيه تلقائي بعد الإرسال (موجود لكن متحكم فيه)
+    if(AUTO_REDIRECT_AFTER_SUCCESS){
+      setTimeout(()=>{
+        window.location.href = "https://rafah.org.sa";
+      }, 2000);
+    }
   })
   .catch(err => {
     alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
@@ -718,6 +926,7 @@ function submitForm(){
     updateSubmitState();
   });
 }
+
   /* ===== نافذة تأكيد البيانات ===== */
 function openConfirmModal(){
   // تعبئة بيانات التأكيد
@@ -738,6 +947,7 @@ function confirmSubmit(){
   submitForm(); // نفس دالة الإرسال الأصلية بدون تغيير
 }
 </script>
+
 <!-- نافذة تأكيد البيانات -->
 <div class="modal" id="confirmModal">
   <div class="modal-box">
@@ -749,6 +959,41 @@ function confirmSubmit(){
 
     <button class="submit" onclick="closeConfirm()">❌ تعديل البيانات</button>
     <button class="submit" onclick="confirmSubmit()">✅ تأكيد الإرسال</button>
+  </div>
+</div>
+
+<!-- ✅ نافذة نجاح جديدة (إضافة بدون حذف أي شيء) -->
+<div class="modal" id="successModal">
+  <div class="success-box">
+    <div class="success-head">
+      <div class="success-icon">✅</div>
+      <div>
+        <h3 class="success-title">تم استلام طلبك بنجاح</h3>
+        <div class="success-sub">جزاك الله خيرًا 🌷 سيتم التواصل معك قريبًا بإذن الله.</div>
+      </div>
+    </div>
+
+    <div class="req-card">
+      <div class="req-label">رقم الطلب</div>
+      <div class="req-id" id="sRequestId">...</div>
+
+      <div class="req-actions">
+        <button class="submit btn-ghost" onclick="copyRequestId()">📋 نسخ رقم الطلب</button>
+        <button class="submit btn-ghost" onclick="printRequestId()">🖨️ طباعة رقم الطلب</button>
+        <button class="submit btn-site" onclick="goToRafahSite()">🌐 زيارة موقع الجمعية</button>
+        <button class="submit btn-ok" onclick="closeSuccess()">✖️ إغلاق</button>
+      </div>
+
+      <div class="req-actions" style="margin-top:10px">
+        <button class="submit btn-ghost" onclick="tryClosePage()">🚪 إغلاق الصفحة</button>
+        <button class="submit btn-ghost" onclick="openForm()">➕ إرسال طلب آخر</button>
+      </div>
+
+      <div class="small-note">
+        • احتفظ برقم الطلب للمتابعة عند الحاجة.<br>
+        • زر “إغلاق الصفحة” قد لا يعمل في بعض المتصفحات حسب سياسة الأمان.
+      </div>
+    </div>
   </div>
 </div>
 
