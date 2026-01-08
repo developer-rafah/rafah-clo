@@ -378,6 +378,11 @@ const errArea  = document.getElementById("errArea");
 
 const submitBtn = document.getElementById("submitBtn");
 
+/* ✅ إضافة: Helper للإحداثيات (جذري) */
+function hasValidCoords(){
+  return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+}
+
 function shakeEl(el){
   el.classList.add("shake");
   setTimeout(()=>el.classList.remove("shake"),350);
@@ -419,7 +424,8 @@ function restoreDraft(){
       if(typeof draft.lat === "number") lat = draft.lat;
       if(typeof draft.lng === "number") lng = draft.lng;
 
-      if(lat && lng){
+      /* كان: if(lat && lng) */
+      if(hasValidCoords()){
         document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
       }
     }
@@ -453,7 +459,8 @@ function updateSubmitState(){
     isArabicText(nameInput.value) &&
     isSaudiMobile(phoneClean) &&
     isArabicText(areaInput.value) &&
-    !!lat && !!lng;
+    /* كان: !!lat && !!lng */
+    hasValidCoords();
 
   submitBtn.disabled = !ok;
 }
@@ -553,7 +560,7 @@ function openMap(){
     // لو الخريطة موجودة: فقط حدّث الحجم وركز على أحدث إحداثيات
     if(map){
       map.invalidateSize();
-      if(lat && lng && marker){
+      if(hasValidCoords() && marker){
         map.setView([lat,lng],16);
         marker.setLatLng([lat,lng]);
       }
@@ -562,8 +569,9 @@ function openMap(){
 
     // تحديد مركز البداية: لو محفوظ lat/lng نبدأ به، وإلا الرياض
     const defaultCenter = [24.7136,46.6753];
-    const startCenter = (lat && lng) ? [lat,lng] : defaultCenter;
-    const startZoom   = (lat && lng) ? 16 : 13;
+    /* كان: (lat && lng) */
+    const startCenter = hasValidCoords() ? [lat,lng] : defaultCenter;
+    const startZoom   = hasValidCoords() ? 16 : 13;
 
     map=L.map('map').setView(startCenter,startZoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
@@ -581,7 +589,7 @@ function openMap(){
     });
 
     // ✅ محاولة التقاط الموقع تلقائيًا إذا ما عندنا موقع محفوظ
-    if(!(lat && lng)){
+    if(!hasValidCoords()){
       locateNow();
     }else{
       document.getElementById("locationStatus").textContent="📍 تم تحميل موقعك المحفوظ — يمكنك تعديل الدبوس إذا لزم";
@@ -677,7 +685,8 @@ function submitForm(){
     return;
   }
 
-  if(!data.lat || !data.lng){
+  /* كان: if(!data.lat || !data.lng) */
+  if(!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lng))){
     alert("الرجاء تحديد موقع الاستلام على الخريطة");
     return;
   }
@@ -694,10 +703,27 @@ function submitForm(){
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(data)
   })
-  .then(res => res.json())
+  /* ✅ تعديل جذري: قراءة الرد بشكل آمن + عرض الخطأ الحقيقي */
+  .then(async (res) => {
+    const text = await res.text();
+    let json = null;
+    try{ json = JSON.parse(text); }catch(e){}
+
+    // للتشخيص في الكونسول
+    console.log("[donate] http:", res.status);
+    console.log("[donate] raw:", text);
+    console.log("[donate] json:", json);
+
+    if(!res.ok){
+      throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
+    }
+    return json;
+  })
   .then(res => {
-    if(!res.success){
-      throw new Error(res.error || "فشل الإرسال");
+    // ✅ نجاح إذا success أو ok
+    const ok = res && (res.success === true || res.ok === true);
+    if(!ok){
+      throw new Error((res && (res.error || res.message)) || "فشل الإرسال");
     }
 
     // تنظيف الحفظ بعد نجاح الإرسال
@@ -712,7 +738,8 @@ function submitForm(){
     }, 2000);
   })
   .catch(err => {
-    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
+    // ✅ بدل رسالة عامة: اعرض سبب الخطأ الحقيقي القادم من السيرفر
+    alert(err && err.message ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
