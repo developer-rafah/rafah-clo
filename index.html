@@ -419,8 +419,7 @@ function restoreDraft(){
       if(typeof draft.lat === "number") lat = draft.lat;
       if(typeof draft.lng === "number") lng = draft.lng;
 
-      // ✅ بدل (lat && lng) استخدم isFinite (حتى لو 0)
-      if(Number.isFinite(lat) && Number.isFinite(lng)){
+      if(lat && lng){
         document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
       }
     }
@@ -449,14 +448,12 @@ function setInvalid(inputEl){
 
 /* تحديث زر الإرسال */
 function updateSubmitState(){
-  const phoneClean = phoneInput.value.replace(/\D/g,'').slice(0,10);
-
-  const hasLoc = Number.isFinite(lat) && Number.isFinite(lng); // ✅
+  const phoneClean = phoneInput.value.replace(/\D/g,''); // لضمان متصل
   const ok =
     isArabicText(nameInput.value) &&
     isSaudiMobile(phoneClean) &&
     isArabicText(areaInput.value) &&
-    hasLoc;
+    !!lat && !!lng;
 
   submitBtn.disabled = !ok;
 }
@@ -486,6 +483,7 @@ function validateAll(){
     clearErr(phoneInput, errPhone);
     setValid(phoneInput, errPhone);
   }else{
+    // لا نعتبره خطأ قوي أثناء الكتابة إلا إذا اكتمل 10 وخطأ
     clearErr(phoneInput, errPhone);
     setInvalid(phoneInput);
   }
@@ -555,7 +553,7 @@ function openMap(){
     // لو الخريطة موجودة: فقط حدّث الحجم وركز على أحدث إحداثيات
     if(map){
       map.invalidateSize();
-      if(Number.isFinite(lat) && Number.isFinite(lng) && marker){
+      if(lat && lng && marker){
         map.setView([lat,lng],16);
         marker.setLatLng([lat,lng]);
       }
@@ -564,8 +562,8 @@ function openMap(){
 
     // تحديد مركز البداية: لو محفوظ lat/lng نبدأ به، وإلا الرياض
     const defaultCenter = [24.7136,46.6753];
-    const startCenter = (Number.isFinite(lat) && Number.isFinite(lng)) ? [lat,lng] : defaultCenter;
-    const startZoom   = (Number.isFinite(lat) && Number.isFinite(lng)) ? 16 : 13;
+    const startCenter = (lat && lng) ? [lat,lng] : defaultCenter;
+    const startZoom   = (lat && lng) ? 16 : 13;
 
     map=L.map('map').setView(startCenter,startZoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
@@ -577,13 +575,13 @@ function openMap(){
       const p = marker.getLatLng();
       lat = p.lat; lng = p.lng;
       document.getElementById("locationStatus").textContent="📍 تم تحديث الموقع بعد التعديل";
-      setAccuracyUI(undefined);
+      setAccuracyUI(undefined); // عند التحريك اليدوي لا يوجد accuracy من GPS
       saveDraft();
       updateSubmitState();
     });
 
     // ✅ محاولة التقاط الموقع تلقائيًا إذا ما عندنا موقع محفوظ
-    if(!(Number.isFinite(lat) && Number.isFinite(lng))){
+    if(!(lat && lng)){
       locateNow();
     }else{
       document.getElementById("locationStatus").textContent="📍 تم تحميل موقعك المحفوظ — يمكنك تعديل الدبوس إذا لزم";
@@ -610,6 +608,7 @@ function locateNow(){
 
       const acc = pos.coords.accuracy;
 
+      // لو الخريطة/المؤشر موجودين
       if(map){
         map.setView([lat,lng],16);
       }
@@ -642,8 +641,8 @@ function confirmLocation(){
   lat=p.lat; lng=p.lng;
   document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
   document.getElementById("mapModal").style.display="none";
-  saveDraft();
-  updateSubmitState();
+  saveDraft();         // 🔒 حفظ الموقع
+  updateSubmitState(); // ✅ تفعيل زر الإرسال إذا اكتملت البيانات
 }
 
 async function submitForm(){
@@ -676,72 +675,81 @@ async function submitForm(){
     return;
   }
 
-  // ✅ بدل !data.lat لأنه قد يكون 0 (نادر) — استخدم isFinite
-  if(!Number.isFinite(data.lat) || !Number.isFinite(data.lng)){
+  if(!data.lat || !data.lng){
     alert("الرجاء تحديد موقع الاستلام على الخريطة");
     return;
   }
 
-  // رابط API عبر Cloudflare (نفس المسار)
-  const API_ENDPOINT = "/api/donate";
-  const DEBUG_API = true; // ✅ مؤقتًا للتشخيص، بعد نجاح الحفظ خليها false
-  const WEB_APP_URL = API_ENDPOINT + (DEBUG_API ? "?debug=1" : "");
+  // رابط Web App (نفس الذي استخدمته في Postman)
+  // ✅ نفس-origin إلى Cloudflare Worker
+  const baseUrl = new URL("/api/donate", window.location.origin);
+
+  // ✅ Debug mode لو فتحت الصفحة بـ ?debug=1
+  const qs = new URLSearchParams(window.location.search);
+  const DEBUG = qs.get("debug") === "1";
+  if(DEBUG) baseUrl.searchParams.set("debug", "1");
 
   // تعطيل الزر لمنع التكرار
   const btns = document.querySelectorAll(".submit");
   btns.forEach(b => b.disabled = true);
 
   try{
-    const res = await fetch(WEB_APP_URL, {
+    console.log("[donate] url:", baseUrl.toString());
+    console.log("[donate] payload:", data);
+
+    const res = await fetch(baseUrl.toString(), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        ...data,
+        // ✅ تأكيد أنها أرقام (مهم)
+        lat: Number(data.lat),
+        lng: Number(data.lng),
+      })
     });
 
     const raw = await res.text();
-    let json = null;
-    try{ json = JSON.parse(raw); }catch(e){ json = null; }
-
     console.log("[donate] http:", res.status);
     console.log("[donate] raw:", raw);
+
+    let json = null;
+    try{ json = JSON.parse(raw); } catch(e){}
+
     console.log("[donate] json:", json);
 
-    // ✅ لو ما رجع JSON سليم
-    if(!json){
-      throw new Error("الرد من السيرفر غير صالح (ليس JSON).");
+    if(!res.ok){
+      throw new Error(json?.error || `HTTP ${res.status}`);
     }
 
-    // ✅ نجاح لازم يكون فيه requestId
-    const ok = (json.success === true || json.ok === true) && !!json.requestId;
-    if(!ok){
-      const msg =
-        json.error ||
-        "⚠️ تم إرجاع نجاح بدون رقم طلب (requestId) — لم يتم الحفظ";
-      throw new Error(msg);
+    // ✅ لازم يرجع requestId وإلا نعتبره فشل حفظ (وهذا اللي عندك الآن)
+    const requestId = json?.requestId || json?.id;
+    if(!requestId){
+      const details = json ? JSON.stringify(json) : raw;
+      throw new Error("Backend did not return requestId (not saved)\n\n" + details);
     }
 
     // تنظيف الحفظ بعد نجاح الإرسال
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 
     document.querySelector("#formModal .modal-box").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح ✅<br>" +
-      "رقم الطلب: <b>" + String(json.requestId) + "</b><br><br>" +
-      "وسيتم التواصل معك قريبًا بإذن الله.<br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
+      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، رقم الطلب: <b>" + requestId + "</b><br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
 
+    // 🎯 توجيه تلقائي بعد الإرسال
     setTimeout(()=>{
       window.location.href = "https://rafah.org.sa";
-    }, 2200);
+    }, 2000);
 
   }catch(err){
-    alert(String(err && err.message ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى"));
     console.error(err);
+    alert(err && err.message ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
   }
 }
 
-/* ===== نافذة تأكيد البيانات ===== */
+  /* ===== نافذة تأكيد البيانات ===== */
 function openConfirmModal(){
+  // تعبئة بيانات التأكيد
   document.getElementById("cName").textContent  = nameInput.value;
   document.getElementById("cPhone").textContent = phoneInput.value;
   document.getElementById("cArea").textContent  = areaInput.value;
