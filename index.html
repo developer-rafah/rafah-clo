@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تبرع فائض1 الملابس | جمعية رفاه</title>
+<title>تبرع فائض الملابس1111 | جمعية رفاه</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -645,7 +645,7 @@ function confirmLocation(){
   updateSubmitState(); // ✅ تفعيل زر الإرسال إذا اكتملت البيانات
 }
 
-async function submitForm(){
+function submitForm(){
 
   const inputs = document.querySelectorAll("#formModal input");
 
@@ -664,12 +664,14 @@ async function submitForm(){
 
   // تحقق بسيط (نفس منطقك الأصلي موجود - لم يُحذف)
   if(!data.name || !data.phone || !data.area){
+    // alert("الرجاء إدخال الاسم ورقم الجوال والحي");
     validateAll();
     return;
   }
 
   const phoneRegex = /^05\d{8}$/;
   if(!phoneRegex.test(data.phone)){
+    // alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
     validateAll();
     showErr(phoneInput, errPhone, "رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
     return;
@@ -681,72 +683,41 @@ async function submitForm(){
   }
 
   // رابط Web App (نفس الذي استخدمته في Postman)
-  // ✅ نفس-origin إلى Cloudflare Worker
-  const baseUrl = new URL("/api/donate", window.location.origin);
-
-  // ✅ Debug mode لو فتحت الصفحة بـ ?debug=1
-  const qs = new URLSearchParams(window.location.search);
-  const DEBUG = qs.get("debug") === "1";
-  if(DEBUG) baseUrl.searchParams.set("debug", "1");
+  const WEB_APP_URL = "/api/donate";
 
   // تعطيل الزر لمنع التكرار
   const btns = document.querySelectorAll(".submit");
   btns.forEach(b => b.disabled = true);
 
-  try{
-    console.log("[donate] url:", baseUrl.toString());
-    console.log("[donate] payload:", data);
-
-    const res = await fetch(baseUrl.toString(), {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        ...data,
-        // ✅ تأكيد أنها أرقام (مهم)
-        lat: Number(data.lat),
-        lng: Number(data.lng),
-      })
-    });
-
-    const raw = await res.text();
-    console.log("[donate] http:", res.status);
-    console.log("[donate] raw:", raw);
-
-    let json = null;
-    try{ json = JSON.parse(raw); } catch(e){}
-
-    console.log("[donate] json:", json);
-
-    if(!res.ok){
-      throw new Error(json?.error || `HTTP ${res.status}`);
-    }
-
-    // ✅ لازم يرجع requestId وإلا نعتبره فشل حفظ (وهذا اللي عندك الآن)
-    const requestId = json?.requestId || json?.id;
-    if(!requestId){
-      const details = json ? JSON.stringify(json) : raw;
-      throw new Error("Backend did not return requestId (not saved)\n\n" + details);
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data)
+  })
+  .then(res => res.json())
+  .then(res => {
+    if(!res.success){
+      throw new Error(res.error || "فشل الإرسال");
     }
 
     // تنظيف الحفظ بعد نجاح الإرسال
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 
     document.querySelector("#formModal .modal-box").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، رقم الطلب: <b>" + requestId + "</b><br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
+      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.<br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
 
     // 🎯 توجيه تلقائي بعد الإرسال
     setTimeout(()=>{
       window.location.href = "https://rafah.org.sa";
     }, 2000);
-
-  }catch(err){
+  })
+  .catch(err => {
+    alert("حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
-    alert(err && err.message ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
-  }
+  });
 }
-
   /* ===== نافذة تأكيد البيانات ===== */
 function openConfirmModal(){
   // تعبئة بيانات التأكيد
@@ -767,7 +738,6 @@ function confirmSubmit(){
   submitForm(); // نفس دالة الإرسال الأصلية بدون تغيير
 }
 </script>
-
 <!-- نافذة تأكيد البيانات -->
 <div class="modal" id="confirmModal">
   <div class="modal-box">
