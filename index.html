@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تبرع فائض الملابس11 | جمعية رفاه</title>
+<title>تبرع فائض الملابس111 | جمعية رفاه</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -719,12 +719,53 @@ function submitForm(){
     }
     return json;
   })
-  .then(res => {
-    // ✅ نجاح إذا success أو ok
-    const ok = res && (res.success === true || res.ok === true);
-    if(!ok){
-      throw new Error((res && (res.error || res.message)) || "فشل الإرسال");
-    }
+.then(res => {
+  // ✅ اطبع الرد بالكامل للتشخيص
+  console.log("[donate] final response:", res);
+
+  // ✅ اعتبر النجاح فقط إذا:
+  // 1) success أو ok true
+  // 2) وفيه requestId فعلي
+  const okFlag = res && (res.success === true || res.ok === true);
+  const hasId  = res && typeof res.requestId === "string" && res.requestId.trim().length > 0;
+
+  // ✅ (اختياري قوي) تأكد أنك تضرب نفس نسخة GAS عبر marker إذا موجود
+  // غيّر EXPECTED_MARKER لنفس قيمة GAS_MARKER في Apps Script عندك
+  const EXPECTED_MARKER = "GAS_CODE_v2026_01_05";
+  const markerOk = !res?.marker || res.marker === EXPECTED_MARKER;
+
+  if(!okFlag || !hasId || !markerOk){
+    // لو فيه _debug أو raw اطبعها
+    if(res?._debug) console.log("[donate] _debug:", res._debug);
+    if(res?.raw) console.log("[donate] raw:", res.raw);
+
+    const msg =
+      res?.error ||
+      res?.message ||
+      (!markerOk ? "⚠️ أنت تضرب Deploy مختلف (marker غير مطابق)" : "") ||
+      (!hasId ? "⚠️ تم إرجاع نجاح بدون رقم طلب (requestId) — الإدخال لم يتم" : "") ||
+      "فشل الإرسال";
+
+    throw new Error(msg);
+  }
+
+  // ✅ نجاح مؤكد: اعرض رقم الطلب للمستخدم (بدل نجاح صامت)
+  document.querySelector("#formModal .modal-box").innerHTML =
+    `جزاك الله خيرًا 🌷<br>
+     تم استلام طلبك بنجاح ✅<br>
+     <div style="margin-top:10px;font-weight:900;color:#34d399">رقم الطلب: ${res.requestId}</div>
+     <div style="margin-top:10px;opacity:.85">سيتم التواصل معك قريبًا بإذن الله.</div>
+     <br>سيتم تحويلك الآن إلى موقع الجمعية...`;
+
+  // تنظيف الحفظ بعد نجاح الإرسال
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+
+  // 🎯 توجيه تلقائي بعد الإرسال
+  setTimeout(()=>{
+    window.location.href = "https://rafah.org.sa";
+  }, 2000);
+})
+
 
     // تنظيف الحفظ بعد نجاح الإرسال
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
