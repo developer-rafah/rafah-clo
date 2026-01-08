@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تبرع فائض الملابس111 | جمعية رفاه</title>
+<title>تبرع فائض الملابس | جمعية رفاه</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -368,6 +368,9 @@ function openForm(){
 /* ====== إضافات: حفظ تلقائي + تحقق + تفعيل زر الإرسال ====== */
 const STORAGE_KEY = "rafah_donation_draft_v1";
 
+/* ✅ marker expected (لازم يطابق GAS_MARKER في Apps Script) */
+const EXPECTED_GAS_MARKER = "GAS_CODE_v2026_01_05";
+
 const nameInput  = document.querySelector('#formModal input[placeholder="الاسم"]');
 const phoneInput = document.querySelector('#formModal input[placeholder="رقم الجوال"]');
 const areaInput  = document.querySelector('#formModal input[placeholder="الحي"]');
@@ -378,7 +381,6 @@ const errArea  = document.getElementById("errArea");
 
 const submitBtn = document.getElementById("submitBtn");
 
-/* ✅ إضافة: Helper للإحداثيات (جذري) */
 function hasValidCoords(){
   return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 }
@@ -424,7 +426,6 @@ function restoreDraft(){
       if(typeof draft.lat === "number") lat = draft.lat;
       if(typeof draft.lng === "number") lng = draft.lng;
 
-      /* كان: if(lat && lng) */
       if(hasValidCoords()){
         document.getElementById("locationStatus").textContent="✔️ تم تحديد موقع الاستلام بدقة";
       }
@@ -459,7 +460,6 @@ function updateSubmitState(){
     isArabicText(nameInput.value) &&
     isSaudiMobile(phoneClean) &&
     isArabicText(areaInput.value) &&
-    /* كان: !!lat && !!lng */
     hasValidCoords();
 
   submitBtn.disabled = !ok;
@@ -569,7 +569,6 @@ function openMap(){
 
     // تحديد مركز البداية: لو محفوظ lat/lng نبدأ به، وإلا الرياض
     const defaultCenter = [24.7136,46.6753];
-    /* كان: (lat && lng) */
     const startCenter = hasValidCoords() ? [lat,lng] : defaultCenter;
     const startZoom   = hasValidCoords() ? 16 : 13;
 
@@ -653,7 +652,13 @@ function confirmLocation(){
   updateSubmitState(); // ✅ تفعيل زر الإرسال إذا اكتملت البيانات
 }
 
+/* ✅ قفل لمنع الإرسال المكرر */
+let __sending = false;
+
 function submitForm(){
+
+  if(__sending) return;
+  __sending = true;
 
   const inputs = document.querySelectorAll("#formModal input");
 
@@ -672,22 +677,22 @@ function submitForm(){
 
   // تحقق بسيط (نفس منطقك الأصلي موجود - لم يُحذف)
   if(!data.name || !data.phone || !data.area){
-    // alert("الرجاء إدخال الاسم ورقم الجوال والحي");
     validateAll();
+    __sending = false;
     return;
   }
 
   const phoneRegex = /^05\d{8}$/;
   if(!phoneRegex.test(data.phone)){
-    // alert("رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
     validateAll();
     showErr(phoneInput, errPhone, "رقم الجوال غير صحيح، يجب أن يبدأ بـ 05 ويتكون من 10 أرقام");
+    __sending = false;
     return;
   }
 
-  /* كان: if(!data.lat || !data.lng) */
   if(!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lng))){
     alert("الرجاء تحديد موقع الاستلام على الخريطة");
+    __sending = false;
     return;
   }
 
@@ -701,15 +706,14 @@ function submitForm(){
   fetch(WEB_APP_URL, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
+    cache: "no-store",
     body: JSON.stringify(data)
   })
-  /* ✅ تعديل جذري: قراءة الرد بشكل آمن + عرض الخطأ الحقيقي */
   .then(async (res) => {
     const text = await res.text();
     let json = null;
     try{ json = JSON.parse(text); }catch(e){}
 
-    // للتشخيص في الكونسول
     console.log("[donate] http:", res.status);
     console.log("[donate] raw:", text);
     console.log("[donate] json:", json);
@@ -719,59 +723,33 @@ function submitForm(){
     }
     return json;
   })
-.then(res => {
-  // ✅ اطبع الرد بالكامل للتشخيص
-  console.log("[donate] final response:", res);
+  .then(res => {
+    console.log("[donate] final response:", res);
 
-  // ✅ اعتبر النجاح فقط إذا:
-  // 1) success أو ok true
-  // 2) وفيه requestId فعلي
-  const okFlag = res && (res.success === true || res.ok === true);
-  const hasId  = res && typeof res.requestId === "string" && res.requestId.trim().length > 0;
+    const okFlag = res && (res.success === true || res.ok === true);
+    const hasId  = res && typeof res.requestId === "string" && res.requestId.trim().length > 0;
+    const markerOk = !res?.marker || res.marker === EXPECTED_GAS_MARKER;
 
-  // ✅ (اختياري قوي) تأكد أنك تضرب نفس نسخة GAS عبر marker إذا موجود
-  // غيّر EXPECTED_MARKER لنفس قيمة GAS_MARKER في Apps Script عندك
-  const EXPECTED_MARKER = "GAS_CODE_v2026_01_05";
-  const markerOk = !res?.marker || res.marker === EXPECTED_MARKER;
-
-  if(!okFlag || !hasId || !markerOk){
-    // لو فيه _debug أو raw اطبعها
-    if(res?._debug) console.log("[donate] _debug:", res._debug);
-    if(res?.raw) console.log("[donate] raw:", res.raw);
-
-    const msg =
-      res?.error ||
-      res?.message ||
-      (!markerOk ? "⚠️ أنت تضرب Deploy مختلف (marker غير مطابق)" : "") ||
-      (!hasId ? "⚠️ تم إرجاع نجاح بدون رقم طلب (requestId) — الإدخال لم يتم" : "") ||
-      "فشل الإرسال";
-
-    throw new Error(msg);
-  }
-
-  // ✅ نجاح مؤكد: اعرض رقم الطلب للمستخدم (بدل نجاح صامت)
-  document.querySelector("#formModal .modal-box").innerHTML =
-    `جزاك الله خيرًا 🌷<br>
-     تم استلام طلبك بنجاح ✅<br>
-     <div style="margin-top:10px;font-weight:900;color:#34d399">رقم الطلب: ${res.requestId}</div>
-     <div style="margin-top:10px;opacity:.85">سيتم التواصل معك قريبًا بإذن الله.</div>
-     <br>سيتم تحويلك الآن إلى موقع الجمعية...`;
-
-  // تنظيف الحفظ بعد نجاح الإرسال
-  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
-
-  // 🎯 توجيه تلقائي بعد الإرسال
-  setTimeout(()=>{
-    window.location.href = "https://rafah.org.sa";
-  }, 2000);
-})
-
+    if(!okFlag || !hasId || !markerOk){
+      if(res?._debug) console.log("[donate] _debug:", res._debug);
+      const msg =
+        res?.error ||
+        res?.message ||
+        (!markerOk ? "⚠️ أنت تضرب Deploy مختلف (marker غير مطابق)" : "") ||
+        (!hasId ? "⚠️ تم إرجاع نجاح بدون رقم طلب (requestId) — لم يتم الحفظ" : "") ||
+        "فشل الإرسال";
+      throw new Error(msg);
+    }
 
     // تنظيف الحفظ بعد نجاح الإرسال
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 
     document.querySelector("#formModal .modal-box").innerHTML =
-      "جزاك الله خيرًا 🌷<br>تم استلام طلبك بنجاح، وسيتم التواصل معك قريبًا بإذن الله.<br><br>سيتم تحويلك الآن إلى موقع الجمعية...";
+      `جزاك الله خيرًا 🌷<br>
+       تم استلام طلبك بنجاح ✅<br>
+       <div style="margin-top:10px;font-weight:900;color:#34d399">رقم الطلب: ${res.requestId}</div>
+       <div style="margin-top:10px;opacity:.85">سيتم التواصل معك قريبًا بإذن الله.</div>
+       <br>سيتم تحويلك الآن إلى موقع الجمعية...`;
 
     // 🎯 توجيه تلقائي بعد الإرسال
     setTimeout(()=>{
@@ -779,11 +757,13 @@ function submitForm(){
     }, 2000);
   })
   .catch(err => {
-    // ✅ بدل رسالة عامة: اعرض سبب الخطأ الحقيقي القادم من السيرفر
     alert(err && err.message ? err.message : "حدث خطأ أثناء الإرسال، الرجاء المحاولة مرة أخرى");
     console.error(err);
     btns.forEach(b => b.disabled = false);
     updateSubmitState();
+  })
+  .finally(()=>{
+    __sending = false;
   });
 }
   /* ===== نافذة تأكيد البيانات ===== */
