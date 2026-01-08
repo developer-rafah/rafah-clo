@@ -836,10 +836,20 @@ function printRequestId(){
 function goToRafahSite(){
   window.open("https://rafah.org.sa", "_blank");
 }
-function tryClosePage(){
-  // ملاحظة: قد لا يسمح المتصفح بإغلاق تبويب لم يفتح عبر window.open
+
+  function tryClosePage(){
+  // ✅ تأكيد المستخدم
+  const ok = confirm("هل تريد إغلاق هذه الصفحة الآن؟");
+  if(!ok) return;
+
+  // محاولة إغلاق التبويب
   window.close();
-  setTimeout(()=>{ showToast("إذا لم تُغلق الصفحة، أغلقها يدويًا"); }, 250);
+
+  // ✅ إذا المتصفح منع الإغلاق، نظهر تنبيه أنيق للمستخدم
+  setTimeout(()=>{
+    // إذا ما زالت الصفحة موجودة، غالبًا لم تُغلق
+    showToast("قد يمنع المتصفح إغلاق الصفحة تلقائيًا. يمكنك إغلاقها يدويًا ✨");
+  }, 250);
 }
 
 function submitForm(){
